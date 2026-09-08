@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -10,21 +11,30 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilização visual customizada
+# Estilização visual customizada com contraste forçado para modo claro e escuro
 st.markdown("""
 <style>
-    .metric-card {
-        background-color: #F8FAFC;
-        border: 1px solid #E2E8F0;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 10px;
+    /* Força os cards do st.metric a terem fundo executivo e texto legível */
+    [data-testid="stMetric"] {
+        background-color: #1E293B !important;
+        border: 1px solid #334155 !important;
+        padding: 18px !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.25) !important;
     }
-    .stMetric {
-        background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        padding: 15px;
-        border-radius: 10px;
+    
+    /* Cor do rótulo/título da métrica */
+    [data-testid="stMetricLabel"] p {
+        color: #94A3B8 !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+    }
+    
+    /* Cor do valor financeiro principal (R$) */
+    [data-testid="stMetricValue"] div {
+        color: #F8FAFC !important;
+        font-weight: 800 !important;
+        font-size: 26px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -94,14 +104,14 @@ custo_rat_maximo = folha_anual * rat_ajustado_maximo
 economia_tributaria = custo_rat_atual - custo_rat_alvo
 
 # Metodologia Pirâmide de Bird (Custos Ocultos / Indiretos)
-# Relação clássica de 1:4 (para cada R$ 1 direto, estima-se R$ 4 em custos ocultos)
+# Relação clássica estimada de 1:4.5 em perdas de produtividade, paradas e retrabalho
 total_acidentes = acid_sem_afast + acid_com_afast
 custos_diretos_totais = total_acidentes * custo_direto_medio
-custos_indiretos_totais = custos_diretos_totais * 4.5  # Perdas de produtividade, retrabalho, perícias, reposição
+custos_indiretos_totais = custos_diretos_totais * 4.5
 
 impacto_total_atual = custo_rat_atual + custos_diretos_totais + custos_indiretos_totais
 
-# Cards de Métricas Principais
+# 4 Cards de Métricas Principais
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -137,7 +147,7 @@ with col4:
 
 st.markdown("---")
 
-# Gráficos com cores de alto contraste e legibilidade ajustada para fundo claro
+# Seção de Gráficos Executivos (Visual compatível com Dark e Light mode)
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
@@ -167,24 +177,24 @@ with col_g1:
     
     fig_bar.update_traces(
         textposition="outside",
-        textfont=dict(size=14, color="#1E293B", family="Arial Black")
+        textfont=dict(size=14, color="#E2E8F0", family="Arial Black")
     )
     
     fig_bar.update_layout(
         showlegend=False,
-        plot_bgcolor="#FFFFFF",
-        paper_bgcolor="#FFFFFF",
-        font=dict(color="#1E293B", size=13),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#94A3B8", size=13),
         xaxis=dict(
-            tickfont=dict(color="#1E293B", size=12),
+            tickfont=dict(color="#CBD5E1", size=11),
             title=None,
             showgrid=False
         ),
         yaxis=dict(
-            tickfont=dict(color="#1E293B", size=12),
-            title=dict(text="Custo Anual em R$", font=dict(color="#1E293B")),
+            tickfont=dict(color="#CBD5E1", size=12),
+            title=dict(text="Custo Anual em R$", font=dict(color="#CBD5E1")),
             showgrid=True,
-            gridcolor="#E2E8F0"
+            gridcolor="#334155"
         ),
         margin=dict(t=30, l=10, r=10, b=40)
     )
@@ -192,10 +202,10 @@ with col_g1:
     st.plotly_chart(fig_bar, use_container_width=True)
 
 with col_g2:
-    st.subheader("🎯 Composição do Prejuízo por Ocorrências (Bird)")
+    st.subheader("🎯 Composição das Perdas por Ocorrências (Bird)")
     
     df_pizza = pd.DataFrame({
-        "Tipo": ["Custos Ocultos (Paradas, Retrabalho, Passivos)", "Custos Médicos/Diretos"],
+        "Tipo": ["Custos Ocultos (Paradas, Perícias e Treinamento)", "Custos Diretos (Médicos/Hospitalares)"],
         "Valor": [custos_indiretos_totais, custos_diretos_totais]
     })
     
@@ -210,20 +220,20 @@ with col_g2:
     fig_donut.update_traces(
         textinfo="percent",
         textfont=dict(size=14, color="#FFFFFF", family="Arial Black"),
-        marker=dict(line=dict(color='#FFFFFF', width=2))
+        marker=dict(line=dict(color='#0F172A', width=2))
     )
     
     fig_donut.update_layout(
-        plot_bgcolor="#FFFFFF",
-        paper_bgcolor="#FFFFFF",
-        font=dict(color="#1E293B", size=12),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#94A3B8", size=12),
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=-0.2,
+            y=-0.25,
             xanchor="center",
             x=0.5,
-            font=dict(color="#1E293B", size=12)
+            font=dict(color="#CBD5E1", size=11)
         ),
         margin=dict(t=30, l=10, r=10, b=50)
     )
@@ -232,7 +242,7 @@ with col_g2:
 
 st.markdown("---")
 
-# Seção de Compartilhamento Executivo via WhatsApp (Formatado e Codificado)
+# Seção de Compartilhamento via WhatsApp (Texto Completo e Codificado)
 st.subheader("📲 Compartilhar Diagnóstico Executivo")
 
 msg_whatsapp = f"""*RELATÓRIO DE ENGENHARIA ECONÔMICA & SST* 📊
@@ -246,7 +256,7 @@ msg_whatsapp = f"""*RELATÓRIO DE ENGENHARIA ECONÔMICA & SST* 📊
 • Custo Anual RAT Atual: R$ {custo_rat_atual:,.2f}
 • Economia Tributária Potencial: R$ {economia_tributaria:,.2f}/ano
 • Custos Indiretos/Ocultos Estimados: R$ {custos_indiretos_totais:,.2f}
-• *Potencial de Retorno (SST): R$ {potencial_total_recuperacao:,.2f}*
+• *Potencial Total de Retorno (SST): R$ {potencial_total_recuperacao:,.2f}*
 
 Simulação realizada via: https://simulador-custos-sst.streamlit.app
 Consultoria Técnica: Daniel Martins (Engenheiro de Segurança do Trabalho)
@@ -271,11 +281,12 @@ st.markdown(
             align-items: center;
             justify-content: center;
             gap: 10px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
         ">
-            📲 Enviar Relatório Completo via WhatsApp para a Diretoria / Financeiro
+            📲 Compartilhar Sumário Executivo com Diretoria / Financeiro via WhatsApp
         </button>
     </a>
     """,
     unsafe_allow_html=True
 )
+
