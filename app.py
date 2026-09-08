@@ -4,6 +4,14 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import urllib.parse
+import io
+from datetime import date
+
+# Importações do ReportLab para o relatório formal em PDF
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 st.set_page_config(
     page_title="Simulador Financeiro de SST: FAP, RAT e Custos Ocultos",
@@ -11,10 +19,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilização visual customizada com contraste forçado para modo claro e escuro
+# Estilização visual customizada com contraste forçado
 st.markdown("""
 <style>
-    /* Força os cards do st.metric a terem fundo executivo e texto legível */
     [data-testid="stMetric"] {
         background-color: #1E293B !important;
         border: 1px solid #334155 !important;
@@ -22,15 +29,11 @@ st.markdown("""
         border-radius: 12px !important;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.25) !important;
     }
-    
-    /* Cor do rótulo/título da métrica */
     [data-testid="stMetricLabel"] p {
         color: #94A3B8 !important;
         font-weight: 600 !important;
         font-size: 14px !important;
     }
-    
-    /* Cor do valor financeiro principal (R$) */
     [data-testid="stMetricValue"] div {
         color: #F8FAFC !important;
         font-weight: 800 !important;
@@ -39,15 +42,179 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Título e Cabeçalho Executivo
+# Função Geradora do Laudo / Relatório Executivo em PDF
+def gerar_relatorio_executivo_pdf(dados):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=40,
+        bottomMargin=40
+    )
+    
+    styles = getSampleStyleSheet()
+    
+    estilo_titulo = ParagraphStyle(
+        'Titulo',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor('#0F172A'),
+        alignment=0
+    )
+    
+    estilo_sub = ParagraphStyle(
+        'Subtitulo',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=10,
+        leading=14,
+        textColor=colors.HexColor('#64748B'),
+        alignment=0
+    )
+    
+    estilo_secao = ParagraphStyle(
+        'Secao',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        leading=16,
+        textColor=colors.HexColor('#0284C7'),
+        alignment=0
+    )
+    
+    estilo_corpo = ParagraphStyle(
+        'Corpo',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=10,
+        leading=15,
+        textColor=colors.HexColor('#334155')
+    )
+
+    estilo_destaque = ParagraphStyle(
+        'Destaque',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=11,
+        leading=15,
+        textColor=colors.HexColor('#16A34A')
+    )
+
+    estilo_rodape = ParagraphStyle(
+        'Rodape',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=11,
+        textColor=colors.HexColor('#94A3B8'),
+        alignment=1
+    )
+
+    story = []
+
+    # Cabeçalho Executivo
+    story.append(Paragraph("RELATÓRIO DE ENGENHARIA ECONÔMICA & IMPACTO FINANCEIRO EM SST", estilo_titulo))
+    story.append(Paragraph(f"Diagnóstico Tributário FAP/RAT, Metodologia Bird e Potencial de Retorno • Emissão: {dados['data_emissao']}", estilo_sub))
+    story.append(Spacer(1, 10))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#0284C7"), spaceAfter=15))
+
+    # Seção 1: Dados Base da Operação
+    story.append(Paragraph("1. PARÂMETROS DA OPERAÇÃO E CENÁRIO ATUAL", estilo_secao))
+    story.append(Spacer(1, 8))
+    
+    tabela_base = [
+        [Paragraph("<b>Folha Salarial Anual Bruta:</b>", estilo_corpo), Paragraph(f"R$ {dados['folha_anual']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), estilo_corpo)],
+        [Paragraph("<b>Alíquota Base do RAT (CNAE):</b>", estilo_corpo), Paragraph(f"{dados['rat_base']*100:.1f}%", estilo_corpo)],
+        [Paragraph("<b>FAP Atual da Empresa:</b>", estilo_corpo), Paragraph(f"{dados['fap_atual']:.2f}", estilo_corpo)],
+        [Paragraph("<b>RAT Ajustado Atual (RAT × FAP):</b>", estilo_corpo), Paragraph(f"{dados['rat_ajustado_atual']*100:.2f}%", estilo_corpo)],
+        [Paragraph("<b>Meta FAP Projetada (Gestão Ativa):</b>", estilo_corpo), Paragraph(f"<b>{dados['fap_alvo']:.2f}</b>", estilo_destaque)],
+    ]
+    t1 = Table(tabela_base, colWidths=[240, 290])
+    t1.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+        ('PADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(t1)
+    story.append(Spacer(1, 18))
+
+    # Seção 2: Apuração Tributária Previdenciária
+    story.append(Paragraph("2. IMPACTO TRIBUTÁRIO PREVIDENCIÁRIO (FAP / RAT)", estilo_secao))
+    story.append(Spacer(1, 8))
+
+    tabela_trib = [
+        [Paragraph("<b>Indicador Previdenciário</b>", estilo_corpo), Paragraph("<b>Valor Vigente / Atual</b>", estilo_corpo), Paragraph("<b>Cenário Otimizado</b>", estilo_corpo)],
+        [Paragraph("Custo Anual RAT", estilo_corpo), Paragraph(f"R$ {dados['custo_rat_atual']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), estilo_corpo), Paragraph(f"R$ {dados['custo_rat_alvo']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), estilo_corpo)],
+        [Paragraph("<b>Economia Tributária Líquida Anual</b>", estilo_corpo), Paragraph("-", estilo_corpo), Paragraph(f"<b>R$ {dados['economia_tributaria']:,.2f}</b>".replace(",", "X").replace(".", ",").replace("X", "."), estilo_destaque)]
+    ]
+    t2 = Table(tabela_trib, colWidths=[200, 165, 165])
+    t2.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#E2E8F0')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+        ('PADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(t2)
+    story.append(Spacer(1, 18))
+
+    # Seção 3: Custos Ocultos e Perdas Indiretas (Bird)
+    story.append(Paragraph("3. PERDAS INDIRETAS E CUSTOS OCULTOS (RATIO DE BIRD)", estilo_secao))
+    story.append(Spacer(1, 8))
+
+    tabela_bird = [
+        [Paragraph("<b>Histórico de Ocorrências (12 meses):</b>", estilo_corpo), Paragraph(f"{dados['total_acid']} ocorrência(s) ({dados['acid_sem']} sem afastamento e {dados['acid_com']} com afastamento)", estilo_corpo)],
+        [Paragraph("<b>Custos Diretos Estimados (Médico/Hospitalar):</b>", estilo_corpo), Paragraph(f"R$ {dados['custos_diretos']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), estilo_corpo)],
+        [Paragraph("<b>Custos Ocultos / Indiretos Estimados:</b><br/><i>(Paradas, reposições, horas improdutivas e passivos)</i>", estilo_corpo), Paragraph(f"R$ {dados['custos_indiretos']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), estilo_corpo)],
+    ]
+    t3 = Table(tabela_bird, colWidths=[260, 270])
+    t3.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+        ('PADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(t3)
+    story.append(Spacer(1, 18))
+
+    # Seção 4: Conclusão e Parecer
+    story.append(Paragraph("4. PARECER TÉCNICO E RETORNO SOBRE O INVESTIMENTO (ROI)", estilo_secao))
+    story.append(Spacer(1, 8))
+
+    parecer_texto = f"""
+    A implementação de um plano estruturado de conformidade e mitigação de riscos (PGR, treinamentos normativos e controle de afastamentos) apresenta um <b>Potencial Total de Recuperação de R$ {dados['potencial_total']:,.2f}</b> por ano.
+    <br/><br/>
+    Cada R$ 1,00 investido na prevenção técnica em SST viabiliza retorno financeiro mensurável na preservação do caixa da companhia, blindando a organização contra perdas operacionais e recolhimentos tributários majorados no FAP.
+    """.replace(",", "X").replace(".", ",").replace("X", ".")
+    
+    story.append(Paragraph(parecer_texto, estilo_corpo))
+    story.append(Spacer(1, 35))
+
+    # Assinatura
+    tabela_assinatura = [
+        [Paragraph("____________________________________________________________<br/><b>Daniel Martins</b><br/>Engenheiro de Segurança do Trabalho • Especialista em SST & Economia Ocupacional", estilo_rodape)]
+    ]
+    t_ass = Table(tabela_assinatura, colWidths=[530])
+    t_ass.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+    story.append(t_ass)
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+# Título Principal do App
 st.title("💼 Simulador Financeiro de SST: FAP, RAT e Retorno sobre Prevenção")
 st.markdown("""
 Quantifique o impacto dos acidentes e do FAP diretamente na folha de pagamento da sua empresa.
-Converta indicadores técnicos de SST em valor econômico e projeção de ROI para apresentação à Diretoria.
+Converta indicadores técnicos de SST em valor econômico e gere o **Relatório Executivo Formal** para a Diretoria.
 """)
 st.markdown("---")
 
-# Barra Lateral - Parâmetros da Empresa
+# Barra Lateral
 st.sidebar.markdown("## ⚙️ Parâmetros da Empresa")
 
 folha_mensal = st.sidebar.number_input(
@@ -90,7 +257,7 @@ acid_sem_afast = st.sidebar.number_input("Acidentes Sem Afastamento (< 15 dias):
 acid_com_afast = st.sidebar.number_input("Acidentes Com Afastamento (B91 / > 15 dias):", min_value=0, value=2, step=1)
 custo_direto_medio = st.sidebar.number_input("Custo Médico/Hospitalar Direto Médio por Ocorrência (R$):", min_value=0.0, value=2500.0, step=500.0)
 
-# Cálculos Previdenciários (FAP e RAT Ajustado)
+# Cálculos Previdenciários
 rat_ajustado_atual = rat_aliquota * fap_atual
 rat_ajustado_alvo = rat_aliquota * fap_alvo
 rat_ajustado_minimo = rat_aliquota * 0.50
@@ -103,15 +270,14 @@ custo_rat_maximo = folha_anual * rat_ajustado_maximo
 
 economia_tributaria = custo_rat_atual - custo_rat_alvo
 
-# Metodologia Pirâmide de Bird (Custos Ocultos / Indiretos)
-# Relação clássica estimada de 1:4.5 em perdas de produtividade, paradas e retrabalho
+# Metodologia Pirâmide de Bird
 total_acidentes = acid_sem_afast + acid_com_afast
 custos_diretos_totais = total_acidentes * custo_direto_medio
 custos_indiretos_totais = custos_diretos_totais * 4.5
 
-impacto_total_atual = custo_rat_atual + custos_diretos_totais + custos_indiretos_totais
+potencial_total_recuperacao = economia_tributaria + (custos_indiretos_totais * 0.50)
 
-# 4 Cards de Métricas Principais
+# Métricas Principais
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -138,7 +304,6 @@ with col3:
     )
 
 with col4:
-    potencial_total_recuperacao = economia_tributaria + (custos_indiretos_totais * 0.50)
     st.metric(
         label="Potencial Total de Retorno (SST)",
         value=f"R$ {potencial_total_recuperacao:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
@@ -147,7 +312,7 @@ with col4:
 
 st.markdown("---")
 
-# Seção de Gráficos Executivos (Visual compatível com Dark e Light mode)
+# Gráficos
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
@@ -242,9 +407,42 @@ with col_g2:
 
 st.markdown("---")
 
-# Seção de Compartilhamento via WhatsApp (Texto Completo e Codificado)
-st.subheader("📲 Compartilhar Diagnóstico Executivo")
+# Seção de Exportação Executiva (WhatsApp + Laudo em PDF)
+st.subheader("📑 Exportação & Compartilhamento Executivo")
 
+col_btn1, col_btn2 = st.columns(2)
+
+# Botão 1: Laudo Formal em PDF
+dados_relatorio_pdf = {
+    "data_emissao": date.today().strftime("%d/%m/%Y"),
+    "folha_anual": folha_anual,
+    "rat_base": rat_aliquota,
+    "fap_atual": fap_atual,
+    "fap_alvo": fap_alvo,
+    "rat_ajustado_atual": rat_ajustado_atual,
+    "custo_rat_atual": custo_rat_atual,
+    "custo_rat_alvo": custo_rat_alvo,
+    "economia_tributaria": economia_tributaria,
+    "total_acid": total_acidentes,
+    "acid_sem": acid_sem_afast,
+    "acid_com": acid_com_afast,
+    "custos_diretos": custos_diretos_totais,
+    "custos_indiretos": custos_indiretos_totais,
+    "potencial_total": potencial_total_recuperacao
+}
+
+pdf_bytes = gerar_relatorio_executivo_pdf(dados_relatorio_pdf)
+
+with col_btn1:
+    st.download_button(
+        label="📄 Baixar Relatório Executivo Formal (PDF)",
+        data=pdf_bytes,
+        file_name=f"Relatorio_Economia_SST_{date.today().strftime('%Y%m%d')}.pdf",
+        mime="application/pdf",
+        use_container_width=True
+    )
+
+# Botão 2: Envio Rápido via WhatsApp
 msg_whatsapp = f"""*RELATÓRIO DE ENGENHARIA ECONÔMICA & SST* 📊
 ----------------------------------------
 🏢 *Diagnóstico Financeiro de FAP/RAT e Ocorrências*
@@ -264,29 +462,28 @@ Consultoria Técnica: Daniel Martins (Engenheiro de Segurança do Trabalho)
 
 link_whatsapp = f"https://api.whatsapp.com/send?text={urllib.parse.quote_plus(msg_whatsapp)}"
 
-st.markdown(
-    f"""
-    <a href="{link_whatsapp}" target="_blank" style="text-decoration:none;">
-        <button style="
-            background-color: #25D366;
-            color: white;
-            border: none;
-            padding: 14px 28px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-        ">
-            📲 Compartilhar Sumário Executivo com Diretoria / Financeiro via WhatsApp
-        </button>
-    </a>
-    """,
-    unsafe_allow_html=True
-)
-
+with col_btn2:
+    st.markdown(
+        f"""
+        <a href="{link_whatsapp}" target="_blank" style="text-decoration:none;">
+            <button style="
+                background-color: #25D366;
+                color: white;
+                border: none;
+                padding: 11px 20px;
+                border-radius: 8px;
+                font-size: 15px;
+                font-weight: bold;
+                cursor: pointer;
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+            ">
+                📲 Compartilhar no WhatsApp
+            </button>
+        </a>
+        """,
+        unsafe_allow_html=True
+    )
